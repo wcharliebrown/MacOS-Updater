@@ -1,0 +1,6 @@
+.DS_Store
+# SwiftPM build products
+UpdaterKit/.build/
+# Local app-bundle assembly — only the released DMG is tracked
+build/*
+!build/*.dmg

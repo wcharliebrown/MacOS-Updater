@@ -1,0 +1,8 @@
+{
+  "com.brave.Browser": {
+    "token": "brave-browser",
+    "versionKey": "short",
+    "dropLeadingSegments": 1,
+    "trimTrailingZeros": true
+  }
+}
