@@ -121,10 +121,10 @@ public enum UpdatePlanner {
                 strategy: strategy,
                 executable: brew, arguments: arguments,
                 runningApplicationBundleID: runningID,
-                // A cask carrying a pkg needs sudo — as does replacing a bundle owned
-                // by root (XQuartz's installer sets that; Tunnelblick sets it on
-                // itself as a security measure). brew's password prompt only works in
-                // a real terminal, so those cases are handed there.
+                // A cask carrying a pkg needs sudo — as does replacing a bundle this
+                // process cannot write to, whether owned by root (XQuartz, Tunnelblick)
+                // or shielded by App Management (Firefox). brew's password prompt only
+                // works in a real terminal, so those cases are handed there.
                 requiresTerminal: candidate.requiresAdmin
                     || Self.needsPrivilegedReplace(candidate.app?.url),
                 manualURL: candidate.homepage
@@ -202,14 +202,26 @@ public enum UpdatePlanner {
         }
     }
 
-    /// True when the bundle belongs to another user — root, in practice — so the
-    /// current user cannot replace or delete it without privileges.
+    /// True when this process cannot replace or delete the bundle without privileges.
+    ///
+    /// Two distinct causes, same consequence:
+    /// - the bundle belongs to another user — root, in practice (XQuartz, Tunnelblick);
+    /// - macOS App Management (TCC) forbids modifying an app installed by a different
+    ///   developer's process, even when the Unix bits allow it (Firefox, whose own
+    ///   updater installed it). `access(2)` reflects that denial for this process, so
+    ///   `isWritableFile` answers exactly the question "will a spawned `rm` succeed?".
+    ///   Granting "App Management" to this app in System Settings → Privacy & Security
+    ///   makes the bundle writable again and skips the Terminal handoff.
     static func needsPrivilegedReplace(_ url: URL?) -> Bool {
         guard let url,
-              let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
-              let owner = attributes[.ownerAccountID] as? NSNumber
+              FileManager.default.fileExists(atPath: url.path)
         else { return false }
-        return owner.uint32Value != getuid()
+        if let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+           let owner = attributes[.ownerAccountID] as? NSNumber,
+           owner.uint32Value != getuid() {
+            return true
+        }
+        return !FileManager.default.isWritableFile(atPath: url.path)
     }
 
     public static func currentRunningBundleIDs() -> Set<String> {

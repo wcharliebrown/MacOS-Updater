@@ -2,8 +2,8 @@
 APP_NAME="MacOS Updater"
 EXECUTABLE="MacOSUpdater"
 BUNDLE_ID="com.dialogs.MacOSUpdater"
-VERSION="1.2.0"
-BUILD="7"
+VERSION="1.2.1"
+BUILD="8"
 MIN_MACOS="14.0"
 
 # Developer ID identity used for signing. Override with SIGN_IDENTITY=... if needed.

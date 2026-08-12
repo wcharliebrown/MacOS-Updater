@@ -150,6 +150,27 @@ struct PrivilegedBundleTests {
         #expect(!UpdatePlanner.needsPrivilegedReplace(nil))
     }
 
+    @Test("bundles this process cannot write to are detected")
+    func detectsUnwritableBundle() throws {
+        // Regression: Firefox is owned by the current user, but App Management (TCC)
+        // denies modifying it — access(2) reflects that, and a read-only directory
+        // exercises the same code path without needing TCC in the test environment.
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("readonly-\(UUID().uuidString).app")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dir.path)
+            try? FileManager.default.removeItem(at: dir)
+        }
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: dir.path)
+        #expect(UpdatePlanner.needsPrivilegedReplace(dir))
+
+        // A path that does not exist is not "privileged" — there is nothing to replace.
+        let missing = FileManager.default.temporaryDirectory
+            .appendingPathComponent("missing-\(UUID().uuidString).app")
+        #expect(!UpdatePlanner.needsPrivilegedReplace(missing))
+    }
+
     @Test("a root-owned app's brew update is handed to Terminal")
     func rootOwnedUpdateGoesToTerminal() throws {
         // Regression: Tunnelblick self-secures by setting root ownership on its own

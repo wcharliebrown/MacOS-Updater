@@ -56,13 +56,46 @@ public struct UpdateExecutor: Sendable {
 
         log("$ \(plan.commandLine)")
         do {
+            let sawSudoFailure = SudoFailureDetector()
             let status = try await runner.stream(executable, arguments: plan.arguments) { line in
+                sawSudoFailure.inspect(line)
                 log(line)
             }
-            return status == 0 ? .succeeded : .failed(exitCode: status)
+            if status == 0 { return .succeeded }
+            // Homebrew escalates to sudo when it cannot delete the old bundle itself
+            // (root-owned, or blocked by App Management), and sudo cannot prompt from
+            // a GUI subprocess. Rerunning the same command in Terminal lets it ask.
+            if sawSudoFailure.detected {
+                log("Homebrew needs an administrator password to replace this app — reopening in Terminal.")
+                log("Tip: granting App Management to MacOS Updater in System Settings → Privacy & Security lets future updates run without this step.")
+                await Self.openInTerminal(plan.commandLine)
+                return .handedOff("Running in Terminal")
+            }
+            return .failed(exitCode: status)
         } catch {
             log("error: \(error)")
             return .failed(exitCode: -1)
+        }
+    }
+
+    /// Spots sudo dying for want of a terminal in streamed tool output. The stream
+    /// callback is `@Sendable`, so the flag lives behind a lock.
+    private final class SudoFailureDetector: @unchecked Sendable {
+        private let lock = NSLock()
+        private var flag = false
+
+        func inspect(_ line: String) {
+            guard line.contains("sudo: a terminal is required")
+                || line.contains("sudo: a password is required") else { return }
+            lock.lock()
+            flag = true
+            lock.unlock()
+        }
+
+        var detected: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return flag
         }
     }
 
