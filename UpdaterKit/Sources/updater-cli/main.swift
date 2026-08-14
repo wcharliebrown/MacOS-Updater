@@ -31,7 +31,9 @@ let catalog: CaskCatalog?
 var catalogLoadTime: TimeInterval = 0
 do {
     let clock = Date()
-    catalog = try await store.catalog()
+    catalog = try await store.catalog { line in
+        FileHandle.standardError.write(Data((line + "\n").utf8))
+    }
     catalogLoadTime = Date().timeIntervalSince(clock)
 } catch {
     catalog = nil

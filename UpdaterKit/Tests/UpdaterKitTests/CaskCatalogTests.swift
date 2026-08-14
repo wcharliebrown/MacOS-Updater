@@ -150,3 +150,28 @@ struct PlatformTests {
         #expect(Platform.variationKeys(codename: nil, isARM: true).isEmpty)
     }
 }
+
+@Suite("Catalog staleness")
+struct CatalogStalenessTests {
+
+    /// The bug this guards against: the app trusted Homebrew's cache no matter how
+    /// old it was, and since every brew invocation sets HOMEBREW_NO_AUTO_UPDATE=1,
+    /// nothing ever refreshed it — updates were silently missed for days.
+    @Test("a file older than maxAge is stale, a fresh one is not")
+    func staleByAge() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("staleness-\(UUID().uuidString).json")
+        try Data("[]".utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let now = Date()
+        #expect(!CatalogStore.isStale(url, olderThan: 3600, now: now))
+        #expect(CatalogStore.isStale(url, olderThan: 3600, now: now.addingTimeInterval(2 * 3600)))
+    }
+
+    @Test("a missing file is always stale")
+    func missingFileIsStale() {
+        let url = URL(fileURLWithPath: "/nonexistent/cask.jws.json")
+        #expect(CatalogStore.isStale(url, olderThan: .greatestFiniteMagnitude))
+    }
+}

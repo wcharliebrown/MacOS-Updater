@@ -49,13 +49,19 @@ final class UpdaterModel {
         statusMessage = nil
         defer { isScanning = false }
 
+        let stamp = Date().formatted(date: .omitted, time: .shortened)
+        append("── Refresh \(stamp)")
+
         let catalog: CaskCatalog?
         do {
-            catalog = try await store.catalog(forceRefresh: force)
+            catalog = try await store.catalog(forceRefresh: force) { [weak self] line in
+                Task { @MainActor in self?.append(line) }
+            }
             catalogOrigin = await store.origin
         } catch {
             catalog = nil
             statusMessage = "Could not load the Homebrew cask catalog: \(error)"
+            append("✗ Could not load the Homebrew cask catalog: \(error)")
         }
 
         let overrides = OverrideTable.loadMerged()
@@ -68,6 +74,15 @@ final class UpdaterModel {
         report = fresh
         lastScan = Date()
         runningBundleIDs = UpdatePlanner.currentRunningBundleIDs()
+
+        let outdated = fresh.outdated
+        if outdated.isEmpty {
+            append("Checked \(fresh.scannedAppCount) apps — everything up to date.")
+        } else {
+            append("Checked \(fresh.scannedAppCount) apps — \(outdated.count) "
+                + (outdated.count == 1 ? "update" : "updates") + " available: "
+                + outdated.map(\.displayName).joined(separator: ", "))
+        }
 
         if settings.notifyOnNewUpdates, let previousCount, fresh.outdated.count > previousCount {
             Notifier.notify(newCount: fresh.outdated.count - previousCount, total: fresh.outdated.count)

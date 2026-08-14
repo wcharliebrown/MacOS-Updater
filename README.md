@@ -4,7 +4,7 @@ A menu bar app that finds macOS applications needing an update — including
 third-party apps installed by direct download — and installs them by delegating to
 `brew`, `mas` and `softwareupdate`.
 
-**[⬇ Download MacOS Updater 1.2.1.dmg](https://github.com/wcharliebrown/MacOS-Updater/raw/main/build/MacOS%20Updater%201.2.1.dmg)**
+**[⬇ Download MacOS Updater 1.2.2.dmg](https://github.com/wcharliebrown/MacOS-Updater/raw/main/build/MacOS%20Updater%201.2.2.dmg)**
 — signed and notarized; open it and drag the app to Applications. Requires macOS 14
 or later, plus [Homebrew](https://brew.sh) for most update sources.
 
