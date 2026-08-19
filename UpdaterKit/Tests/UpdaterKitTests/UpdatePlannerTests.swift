@@ -210,3 +210,50 @@ final class LogRecorder: @unchecked Sendable {
         return storage
     }
 }
+
+@Suite("Caskroom staging debris")
+struct StagedDebrisTests {
+
+    /// A failed replace leaves the backed-up app in the staging area, which makes
+    /// every later upgrade fail with "It seems there is already an App at …".
+    @Test("finds a stranded copy when the installed app still exists")
+    func findsStrandedCopy() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("debris-\(UUID().uuidString)")
+        let brew = root.appendingPathComponent("bin/brew").path
+        let staged = root.appendingPathComponent("Caskroom/firefox/153.0.4/Firefox.app")
+        let installed = root.appendingPathComponent("Applications/Firefox.app")
+        try fm.createDirectory(at: staged, withIntermediateDirectories: true)
+        try fm.createDirectory(at: installed, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+
+        let debris = UpdatePlanner.stagedAppDebris(
+            homebrewPath: brew, token: "firefox", installedAppURL: installed)
+        #expect(debris.map(\.lastPathComponent) == ["Firefox.app"])
+
+        // If the original is gone, the staged copy is the sole survivor — keep it.
+        try fm.removeItem(at: installed)
+        #expect(UpdatePlanner.stagedAppDebris(
+            homebrewPath: brew, token: "firefox", installedAppURL: installed).isEmpty)
+    }
+}
+
+@Suite("App Management detection")
+struct AppManagementBlockedTests {
+
+    @Test("a bundle owned by this user but not writable reads as TCC-blocked")
+    func blockedWhenMineButUnwritable() throws {
+        let fm = FileManager.default
+        let bundle = fm.temporaryDirectory.appendingPathComponent("tcc-\(UUID().uuidString).app")
+        try fm.createDirectory(at: bundle, withIntermediateDirectories: true)
+        defer {
+            try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bundle.path)
+            try? fm.removeItem(at: bundle)
+        }
+
+        #expect(!UpdatePlanner.appManagementBlocked(bundle))
+        try fm.setAttributes([.posixPermissions: 0o555], ofItemAtPath: bundle.path)
+        #expect(UpdatePlanner.appManagementBlocked(bundle))
+        #expect(!UpdatePlanner.appManagementBlocked(URL(fileURLWithPath: "/nonexistent.app")))
+    }
+}

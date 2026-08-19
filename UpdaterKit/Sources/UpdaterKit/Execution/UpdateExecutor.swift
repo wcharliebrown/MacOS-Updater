@@ -45,10 +45,45 @@ public struct UpdateExecutor: Sendable {
             return .succeeded
         }
 
+        // A failed replace backs the installed app up into the Caskroom and leaves the
+        // copy there, which wedges every later attempt before it even starts. The
+        // staging area is always writable by this process, so clear it first.
+        if plan.strategy.isHomebrew, let brew = plan.executable {
+            for debris in UpdatePlanner.stagedAppDebris(
+                homebrewPath: brew, token: plan.candidate.identifier,
+                installedAppURL: plan.candidate.app?.url
+            ) {
+                log("Removing a leftover copy from an interrupted update: \(debris.path)")
+                try? FileManager.default.removeItem(at: debris)
+            }
+        }
+
+        var handToTerminal = plan.requiresTerminal
+
+        // App Management (TCC) is not a password problem: sudo in Terminal fails just
+        // the same. Attempting a protected write from this process makes macOS show
+        // its consent prompt; granted, the update can run right here.
+        if handToTerminal,
+           let bundleURL = plan.candidate.app?.url,
+           UpdatePlanner.appManagementBlocked(bundleURL) {
+            log("\(plan.candidate.displayName) is protected by macOS App Management — requesting access…")
+            if Self.requestAppManagementAccess(for: bundleURL) {
+                log("Access granted — updating directly.")
+                handToTerminal = plan.candidate.requiresAdmin
+            } else if !plan.candidate.requiresAdmin {
+                log("Access is not granted. Enable MacOS Updater under System Settings → Privacy & Security → App Management, then click Update again.")
+                await Self.openAppManagementSettings()
+                return .skipped(
+                    "Blocked by App Management — enable MacOS Updater in the System Settings "
+                    + "pane that just opened, then click Update again."
+                )
+            }
+        }
+
         // Root prompts cannot be answered from a GUI subprocess; running the command
         // here would block forever on an invisible password prompt. Hand the exact
         // command to Terminal, where the user can authenticate.
-        if plan.requiresTerminal {
+        if handToTerminal {
             log("Requires an administrator password — opening Terminal.")
             await Self.openInTerminal(plan.commandLine)
             return .handedOff("Running in Terminal")
@@ -97,6 +132,31 @@ public struct UpdateExecutor: Sendable {
             defer { lock.unlock() }
             return flag
         }
+    }
+
+    // MARK: - App Management (TCC)
+
+    /// Attempts a trivial protected write at the bundle root (outside the code
+    /// signature's seal). On the first attempt macOS shows its "would like to update
+    /// other applications" consent prompt — the call blocks until it is answered.
+    /// Afterwards this simply reports whether access is granted.
+    static func requestAppManagementAccess(for bundleURL: URL) -> Bool {
+        let probe = bundleURL.appendingPathComponent(".macos-updater-access-probe")
+        guard FileManager.default.createFile(atPath: probe.path, contents: nil) else {
+            return false
+        }
+        try? FileManager.default.removeItem(at: probe)
+        return true
+    }
+
+    @MainActor
+    static func openAppManagementSettings() {
+        #if canImport(AppKit)
+        if let url = URL(string:
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles") {
+            NSWorkspace.shared.open(url)
+        }
+        #endif
     }
 
     // MARK: - Handing work to the user

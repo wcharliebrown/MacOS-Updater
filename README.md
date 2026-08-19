@@ -4,7 +4,7 @@ A menu bar app that finds macOS applications needing an update — including
 third-party apps installed by direct download — and installs them by delegating to
 `brew`, `mas` and `softwareupdate`.
 
-**[⬇ Download MacOS Updater 1.2.2.dmg](https://github.com/wcharliebrown/MacOS-Updater/raw/main/build/MacOS%20Updater%201.2.2.dmg)**
+**[⬇ Download MacOS Updater 1.2.3.dmg](https://github.com/wcharliebrown/MacOS-Updater/raw/main/build/MacOS%20Updater%201.2.3.dmg)**
 — signed and notarized; open it and drag the app to Applications. Requires macOS 14
 or later, plus [Homebrew](https://brew.sh) for most update sources.
 
@@ -104,15 +104,25 @@ Right-click any row — including up-to-date and untracked apps — and choose
   prompt, then Finder's administrator prompt.
 - Uninstalls needing an administrator password are handed to Terminal, like updates.
 
-Updates have the same privilege rule: an app whose bundle this process cannot
-write to is updated in Terminal, where `brew` can ask for sudo — a GUI subprocess
-would fail silently. That covers root-owned bundles (Tunnelblick sets root
-ownership on itself as a security measure) and bundles shielded by macOS's
-**App Management** protection, which blocks one app from modifying another app's
-files even when the Unix permissions allow it (Firefox, installed by Mozilla's own
-updater, is a typical case). To skip the Terminal step entirely, grant
-"MacOS Updater" **App Management** in System Settings → Privacy & Security — then
-`brew` can replace those bundles directly and no password is needed.
+Updates distinguish two privilege problems, because they have different fixes:
+
+- **Root-owned bundles** (Tunnelblick sets root ownership on itself as a security
+  measure) and casks that install `.pkg` payloads genuinely need an administrator
+  password, so those run in Terminal, where `brew` can ask for sudo — a GUI
+  subprocess would fail silently.
+- **App Management** (TCC) shielding, where macOS blocks one app from modifying
+  another app's files even when the Unix permissions allow it (Firefox, installed
+  by Mozilla's own updater, is a typical case), is *not* a password problem —
+  `sudo` in Terminal fails exactly the same way. For these the app asks macOS for
+  App Management access, which shows a one-time consent prompt; approve it and the
+  update runs directly, no Terminal and no password, now and in the future. If
+  access isn't granted, the app opens System Settings → Privacy & Security →
+  **App Management** so you can enable "MacOS Updater" there, and the row explains
+  what to do.
+
+An update interrupted by that protection used to leave a backup copy of the app in
+Homebrew's staging area that made every later attempt fail immediately; the app now
+clears such leftovers automatically before updating.
 Either way, the outcome of every attempt now shows directly on the row; hover the
 icon for the reason, and the Log has the full output.
 

@@ -29,6 +29,15 @@ public enum UpdateStrategy: Sendable, Hashable {
         if case .manual = self { return false }
         return true
     }
+
+    public var isHomebrew: Bool {
+        switch self {
+        case .homebrewUpgrade, .homebrewAdopt, .homebrewInstallOver, .homebrewReinstall:
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 /// A concrete, inspectable description of what will run. Building this separately from
@@ -222,6 +231,42 @@ public enum UpdatePlanner {
             return true
         }
         return !FileManager.default.isWritableFile(atPath: url.path)
+    }
+
+    /// True when the bundle is owned by this user yet not writable — the App
+    /// Management (TCC) signature. Root-owned bundles are a different problem;
+    /// an administrator password genuinely fixes those, while no amount of sudo
+    /// bypasses App Management (verified: `sudo rm` on Firefox.app fails from a
+    /// Terminal that has not been granted the permission).
+    static func appManagementBlocked(_ url: URL?) -> Bool {
+        guard let url,
+              FileManager.default.fileExists(atPath: url.path),
+              let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let owner = attributes[.ownerAccountID] as? NSNumber,
+              owner.uint32Value == getuid()
+        else { return false }
+        return !FileManager.default.isWritableFile(atPath: url.path)
+    }
+
+    /// Stranded `.app` copies inside the cask's staging area, left behind when a
+    /// previous run backed up the installed app and then could not delete the
+    /// original (App Management). While present, every subsequent upgrade fails
+    /// immediately with "It seems there is already an App at '<staging path>'".
+    /// Only copies whose original still exists in place are debris — if the install
+    /// died after removing the original, the staged copy is the sole survivor.
+    static func stagedAppDebris(
+        homebrewPath: String, token: String, installedAppURL: URL?
+    ) -> [URL] {
+        guard let installedAppURL,
+              FileManager.default.fileExists(atPath: installedAppURL.path)
+        else { return [] }
+        let caskroom = caskroomURL(homebrewPath: homebrewPath, token: token)
+        let appName = installedAppURL.lastPathComponent
+        let versions = (try? FileManager.default.contentsOfDirectory(atPath: caskroom.path)) ?? []
+        return versions.filter { !$0.hasPrefix(".") }.compactMap { version in
+            let staged = caskroom.appendingPathComponent(version).appendingPathComponent(appName)
+            return FileManager.default.fileExists(atPath: staged.path) ? staged : nil
+        }
     }
 
     public static func currentRunningBundleIDs() -> Set<String> {
