@@ -8,6 +8,17 @@ third-party apps installed by direct download — and installs them by delegatin
 — signed and notarized; open it and drag the app to Applications. Requires macOS 14
 or later, plus [Homebrew](https://brew.sh) for most update sources.
 
+![The MacOS Updater window, listing each scanned app with its source and version](docs/mainwindow.png)
+
+The window (menu bar → **Open Window**) lists every app it checked, not just the
+outdated ones — each row carries the source it was identified from and the version
+actually installed, so a claim of "up to date" can be verified rather than trusted.
+Apps needing an update appear at the top with an **Update** button; **Check Now**
+rescans, and **Log** shows the exact commands and their output.
+
+In the menu bar itself the app is a single status item, badged with the number of
+apps behind:
+
 ![status item](docs/menubar.png)
 
 ## Why this is not trivial
