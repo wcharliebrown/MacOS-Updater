@@ -10,6 +10,19 @@ struct MainWindowView: View {
             toolbar
             Divider()
 
+            // Outside the report branch on purpose: on a first launch the scan has not
+            // finished, so a banner placed inside it would not be shown at all.
+            if model.showFirstRunHint {
+                Banner(
+                    // Not "the ⬇ icon": the status item is a checkmark until something
+                    // is actually out of date, which is the likeliest first-run state.
+                    text: "MacOS Updater runs in the menu bar — click its icon at the top "
+                        + "right of the screen to open this window again.",
+                    kind: .info,
+                    onDismiss: { model.showFirstRunHint = false }
+                )
+            }
+
             if let report = model.report {
                 if let message = model.statusMessage {
                     Banner(text: message, kind: .warning)
@@ -300,6 +313,8 @@ struct Banner: View {
     enum Kind { case info, warning }
     let text: String
     let kind: Kind
+    /// Omitted by the banners that describe a condition the user cannot dismiss away.
+    var onDismiss: (() -> Void)?
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -307,6 +322,13 @@ struct Banner: View {
                 .foregroundStyle(kind == .warning ? .orange : .secondary)
             Text(text).font(.callout).textSelection(.enabled)
             Spacer()
+            if let onDismiss {
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark").font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .help("Dismiss")
+            }
         }
         .padding(10)
         .background(kind == .warning ? Color.orange.opacity(0.1) : Color.secondary.opacity(0.08))

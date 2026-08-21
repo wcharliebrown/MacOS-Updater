@@ -23,6 +23,10 @@ final class UpdaterModel {
 
     var settings = AppSettings()
 
+    /// Set by the app delegate on a first launch, so the window can say where the app
+    /// lives. Not persisted: it can only ever be set on a first launch anyway.
+    var showFirstRunHint = false
+
     /// A removal awaiting user confirmation — set by row context menus, consumed by
     /// the window-level confirmation dialog. Centralised because per-row dialogs
     /// inside a List have proven unreliable on macOS.

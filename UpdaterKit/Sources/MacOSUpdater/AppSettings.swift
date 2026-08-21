@@ -13,6 +13,7 @@ struct AppSettings {
         static let notify = "notifyOnNewUpdates"
         static let dryRun = "dryRun"
         static let unusedDays = "unusedThresholdDays"
+        static let launched = "hasLaunchedBefore"
     }
 
     private let defaults: UserDefaults
@@ -55,6 +56,13 @@ struct AppSettings {
     var unusedThresholdDays: Int {
         get { defaults.integer(forKey: Key.unusedDays) }
         nonmutating set { defaults.set(newValue, forKey: Key.unusedDays) }
+    }
+
+    /// False only until the app has finished launching once. Deliberately absent from
+    /// `register(defaults:)` — a missing key reading `false` is the whole point.
+    var hasLaunchedBefore: Bool {
+        get { defaults.bool(forKey: Key.launched) }
+        nonmutating set { defaults.set(newValue, forKey: Key.launched) }
     }
 
     /// Print commands instead of running them — useful before trusting the app.

@@ -4,11 +4,15 @@ A menu bar app that finds macOS applications needing an update — including
 third-party apps installed by direct download — and installs them by delegating to
 `brew`, `mas` and `softwareupdate`.
 
-**[⬇ Download MacOS Updater 1.2.3.dmg](https://github.com/wcharliebrown/MacOS-Updater/raw/main/build/MacOS%20Updater%201.2.3.dmg)**
+**[⬇ Download MacOS Updater 1.2.4.dmg](https://github.com/wcharliebrown/MacOS-Updater/raw/main/build/MacOS%20Updater%201.2.4.dmg)**
 — signed and notarized; open it and drag the app to Applications. Requires macOS 14
 or later, plus [Homebrew](https://brew.sh) for most update sources.
 
 ![The MacOS Updater window, listing each scanned app with its source and version](docs/mainwindow.png)
+
+The first launch opens this window on its own — a menu bar app has no Dock icon, so
+otherwise nothing visible happens when you open it — and says where to find the app
+afterwards. Later launches are silent.
 
 The window (menu bar → **Open Window**) lists every app it checked, not just the
 outdated ones — each row carries the source it was identified from and the version

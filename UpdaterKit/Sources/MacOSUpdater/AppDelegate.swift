@@ -18,9 +18,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observeModel()
         model.startScheduler()
 
-        // Opens the main window straight away, for verifying the UI without having to
-        // click the status item: MACOS_UPDATER_SHOW_WINDOW=1 open -a "MacOS Updater"
-        if ProcessInfo.processInfo.environment["MACOS_UPDATER_SHOW_WINDOW"] == "1" {
+        // With no Dock icon and no window, a first launch from the DMG looks like the
+        // app did nothing at all — "I ran it but it didn't do anything". Show the
+        // window that once, and only once; later launches stay quiet, as a menu bar
+        // utility should.
+        let isFirstLaunch = !model.settings.hasLaunchedBefore
+        model.settings.hasLaunchedBefore = true
+        model.showFirstRunHint = isFirstLaunch
+
+        // The env var opens the window without clicking the status item, for verifying
+        // the UI: MACOS_UPDATER_SHOW_WINDOW=1 open -a "MacOS Updater"
+        if isFirstLaunch || ProcessInfo.processInfo.environment["MACOS_UPDATER_SHOW_WINDOW"] == "1" {
             showMainWindow()
         }
 
